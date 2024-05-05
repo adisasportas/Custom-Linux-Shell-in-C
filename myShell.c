@@ -38,9 +38,9 @@ int main()
             echo(arguments);
         else if (strcmp(input, "read") == 0)
             readd(arguments);
-        else if (strcmp(input, "cd") == 0)
-            wordCount(arguments);
         else if (strcmp(input, "wc") == 0)
+            wordCount(arguments);
+        else if (strcmp(input, "cd") == 0)
             cd(arguments);
         else if (strcmp(input, "cp") == 0)
             cp(arguments);
