@@ -3,37 +3,45 @@
 char *strwok(char *str, const char *delim)
 {
     static char *next_token = NULL;
+
     if (str)
         next_token = str;
+
     if (!next_token || *next_token == '\0')
         return NULL;
 
     char *token_start = next_token;
     char *current;
+
     for (current = next_token; *current != '\0'; current++)
     {
         const char *d;
+
         for (d = delim; *d != '\0'; d++)
         {
             if (*current == *d)
             {
-
                 token_start++;
                 break;
             }
         }
+
         if (*d == '\0')
             break;
     }
+
     if (*token_start == '\0')
     {
         next_token = token_start;
         return NULL;
     }
+
     next_token = token_start;
+
     for (current = token_start; *current != '\0'; current++)
     {
         const char *d;
+
         for (d = delim; *d != '\0'; d++)
         {
             if (*current == *d)
@@ -48,47 +56,101 @@ char *strwok(char *str, const char *delim)
     next_token = current;
     return token_start;
 }
+
+
 char *getInputFromUser()
 {
-    char ch;
+    int ch;
     int size = 1;
     int index = 0;
+
     char *str = (char *)malloc(size * sizeof(char));
-    while ((ch = getchar()) != '\n')
+
+    if (str == NULL)
     {
-        *(str + index) = ch;
+        perror("malloc");
+        exit(EXIT_FAILURE);
+    }
+
+    while ((ch = getchar()) != '\n' && ch != EOF)
+    {
+        str[index] = (char)ch;
+
         size++;
         index++;
-        str = (char *)realloc(str, size * sizeof(char));
+
+        char *temp = (char *)realloc(
+            str,
+            size * sizeof(char)
+        );
+
+        if (temp == NULL)
+        {
+            free(str);
+            perror("realloc");
+            exit(EXIT_FAILURE);
+        }
+
+        str = temp;
     }
-    *(str + index) = '\0';
+
+    str[index] = '\0';
 
     return str;
 }
+
+
 char **splitArgument(char *str)
 {
-
     char *subStr;
     int size = 2;
     int index = 0;
+
     subStr = strwok(str, " ");
-    char **argumnts = (char **)malloc(size * sizeof(char *));
-    *(argumnts + index) = subStr;
+
+    char **arguments =
+        (char **)malloc(size * sizeof(char *));
+
+    if (arguments == NULL)
+    {
+        perror("malloc");
+        exit(EXIT_FAILURE);
+    }
+
+    arguments[index] = subStr;
+
     while ((subStr = strwok(NULL, " ")) != NULL)
     {
         size++;
         index++;
-        *(argumnts + index) = subStr;
-        argumnts = (char **)realloc(argumnts, size * sizeof(char *));
-    }
-    *(argumnts + (index + 1)) = NULL;
 
-    return argumnts;
+        char **temp = (char **)realloc(
+            arguments,
+            size * sizeof(char *)
+        );
+
+        if (temp == NULL)
+        {
+            free(arguments);
+            perror("realloc");
+            exit(EXIT_FAILURE);
+        }
+
+        arguments = temp;
+        arguments[index] = subStr;
+    }
+
+    arguments[index + 1] = NULL;
+
+    return arguments;
 }
+
+
 void getLocation()
 {
     char location[BUFF_SIZE];
     char hostname[BUFF_SIZE];
+
     char *username = getenv("USER");
 
     if (getcwd(location, BUFF_SIZE) == NULL)
@@ -105,40 +167,58 @@ void getLocation()
 
     if (username == NULL)
     {
-        fprintf(stderr, "Error retrieving username\n");
+        fprintf(
+            stderr,
+            "Error retrieving username\n"
+        );
+
         return;
     }
 
     green();
     bold();
+
     printf("%s@%s:", username, hostname);
+
     reset();
     blue();
+
     printf("%s", location);
+
     reset();
+
     printf("$ ");
 }
+
+
 void logout(char *input)
 {
     free(input);
+
     puts("Logout successful.");
+
     exit(EXIT_SUCCESS);
 }
+
+
 void echo(char **arg)
 {
     while (*(++arg))
     {
         printf("%s ", *arg);
     }
+
     puts("");
 }
+
+
 void echoppend(char **args)
 {
-
     char textToAppend[2048] = {0};
     char filePath[2048] = {0};
 
     int redirectIndex = -1;
+
     for (int i = 0; args[i] != NULL; ++i)
     {
         if (strcmp(args[i], ">>") == 0)
@@ -150,25 +230,59 @@ void echoppend(char **args)
 
     if (redirectIndex == -1)
     {
-        fprintf(stderr, "Error: Command format incorrect. Expected '>>' for redirection.\n");
+        fprintf(
+            stderr,
+            "Error: Command format incorrect. "
+            "Expected '>>' for redirection.\n"
+        );
+
+        return;
+    }
+
+    if (args[redirectIndex + 1] == NULL)
+    {
+        fprintf(stderr, "File path not provided.\n");
         return;
     }
 
     for (int i = 1; i < redirectIndex; ++i)
     {
+        if (strlen(textToAppend) +
+                strlen(args[i]) + 2 >
+            sizeof(textToAppend))
+        {
+            fprintf(stderr, "Text is too long.\n");
+            return;
+        }
+
         strcat(textToAppend, args[i]);
+
         if (i < redirectIndex - 1)
             strcat(textToAppend, " ");
     }
 
-    for (int i = redirectIndex + 1; args[i] != NULL; ++i)
+    for (
+        int i = redirectIndex + 1;
+        args[i] != NULL;
+        ++i
+    )
     {
+        if (strlen(filePath) +
+                strlen(args[i]) + 2 >
+            sizeof(filePath))
+        {
+            fprintf(stderr, "File path is too long.\n");
+            return;
+        }
+
         strcat(filePath, args[i]);
+
         if (args[i + 1] != NULL)
             strcat(filePath, " ");
     }
 
     FILE *file = fopen(filePath, "a");
+
     if (file == NULL)
     {
         perror("Error opening file");
@@ -176,136 +290,228 @@ void echoppend(char **args)
     }
 
     fprintf(file, "%s\n", textToAppend);
+
     fclose(file);
 
-    printf("Appended '%s' to '%s'.\n", textToAppend, filePath);
+    printf(
+        "Appended '%s' to '%s'.\n",
+        textToAppend,
+        filePath
+    );
 }
+
+
 void echorite(char **args)
 {
     char textToWrite[2048] = {0};
     char filePath[2048] = {0};
 
     int foundRedirection = 0;
+
     for (int i = 1; args[i] != NULL; i++)
     {
         if (strcmp(args[i], ">") == 0)
         {
             foundRedirection = 1;
-            if (args[i + 1] != NULL)
+
+            if (args[i + 1] == NULL)
             {
-                for (int j = i + 1; args[j] != NULL; j++)
-                {
-                    if (j > i + 1)
-                        strcat(filePath, " ");
-                    strcat(filePath, args[j]);
-                }
-            }
-            else
-            {
-                fprintf(stderr, "File path not provided.\n");
+                fprintf(
+                    stderr,
+                    "File path not provided.\n"
+                );
+
                 return;
             }
+
+            for (
+                int j = i + 1;
+                args[j] != NULL;
+                j++
+            )
+            {
+                if (strlen(filePath) +
+                        strlen(args[j]) + 2 >
+                    sizeof(filePath))
+                {
+                    fprintf(
+                        stderr,
+                        "File path is too long.\n"
+                    );
+
+                    return;
+                }
+
+                if (j > i + 1)
+                    strcat(filePath, " ");
+
+                strcat(filePath, args[j]);
+            }
+
             break;
         }
         else
         {
+            if (strlen(textToWrite) +
+                    strlen(args[i]) + 2 >
+                sizeof(textToWrite))
+            {
+                fprintf(stderr, "Text is too long.\n");
+                return;
+            }
 
             if (i > 1)
                 strcat(textToWrite, " ");
+
             strcat(textToWrite, args[i]);
         }
     }
+
     if (!foundRedirection)
     {
-        fprintf(stderr, "Redirection operator '>' not found.\n");
+        fprintf(
+            stderr,
+            "Redirection operator '>' not found.\n"
+        );
+
         return;
     }
+
     FILE *file = fopen(filePath, "w");
-    if (!file)
+
+    if (file == NULL)
     {
         perror("Error opening file");
         return;
     }
+
     fprintf(file, "%s\n", textToWrite);
+
     fclose(file);
 
-    printf("Content written to '%s'.\n", filePath);
+    printf(
+        "Content written to '%s'.\n",
+        filePath
+    );
 }
+
+
+/*
+ * Change the current working directory.
+ *
+ * Supports:
+ * cd ..
+ * cd /home/user
+ * cd "/home/user/My Folder"
+ */
 void cd(char **arg)
 {
+    if (arg == NULL || arg[1] == NULL)
+    {
+        fprintf(
+            stderr,
+            "-myShell: cd: missing operand\n"
+        );
+
+        return;
+    }
+
     char path[1024] = {0};
 
-    if (arg[1] == NULL)
+    /*
+     * Rebuild the path because splitArgument()
+     * separates arguments by spaces.
+     */
+    for (int i = 1; arg[i] != NULL; i++)
     {
-        printf("-myShell: cd: missing operand\n");
-        return;
-    }
+        size_t requiredLength =
+            strlen(path) +
+            strlen(arg[i]) +
+            (i > 1 ? 1 : 0) +
+            1;
 
-    if (strcmp(arg[1], "..") == 0 && arg[2] == NULL)
-    {
-        if (chdir("..") != 0)
+        if (requiredLength > sizeof(path))
         {
-            perror("-myShell: cd: error changing to parent directory");
+            fprintf(
+                stderr,
+                "-myShell: cd: path is too long\n"
+            );
+
+            return;
         }
-        return;
-    }
 
-    if (arg[1][0] == '\"')
-    {
-
-        strncpy(path, arg[1] + 1, sizeof(path) - 1);
-        size_t path_len = strlen(path);
-        if (path[path_len - 1] == '\"')
+        if (i > 1)
         {
-            path[path_len - 1] = '\0';
-        }
-        else if (arg[2] != NULL)
-        {
-            for (int i = 2; arg[i] != NULL; i++)
-            {
-                strcat(path, " ");
-                (path, arg[i], sizeof(path) - strlen(path) - 1);
-                if (arg[i][strlen(arg[i]) - 1] == '\"')
-                {
-                    path[strlen(path) - 1] = '\0';
-                    break;
-                }
-            }
-        }
-    }
-    else
-    {
-
-        strncpy(path, arg[1], sizeof(path) - 1);
-        for (int i = 2; arg[i] != NULL; i++)
-        {
-            if (strlen(path) + strlen(arg[i]) + 2 > sizeof(path))
-            {
-                printf("-myShell: cd: path is too long\n");
-                return;
-            }
             strcat(path, " ");
-            strcat(path, arg[i]);
         }
+
+        strcat(path, arg[i]);
+    }
+
+    /*
+     * Remove surrounding quotation marks.
+     *
+     * Example:
+     * "/home/adi/My Folder"
+     */
+    size_t len = strlen(path);
+
+    if (
+        len >= 2 &&
+        path[0] == '"' &&
+        path[len - 1] == '"'
+    )
+    {
+        memmove(
+            path,
+            path + 1,
+            len - 2
+        );
+
+        path[len - 2] = '\0';
     }
 
     if (chdir(path) != 0)
     {
-        printf("-myShell: cd: %s: No such file or directory\n", path);
+        perror("-myShell: cd");
     }
 }
+
+
 void cp(char **arguments)
 {
-    char ch;
-    FILE *src, *des;
-    if ((src = fopen(arguments[1], "r")) == NULL)
+    if (
+        arguments == NULL ||
+        arguments[1] == NULL ||
+        arguments[2] == NULL
+    )
     {
-        puts("Erorr");
+        fprintf(
+            stderr,
+            "Usage: cp <source> <destination>\n"
+        );
+
         return;
     }
-    if ((des = fopen(arguments[2], "w")) == NULL)
+
+    int ch;
+
+    FILE *src;
+    FILE *des;
+
+    src = fopen(arguments[1], "rb");
+
+    if (src == NULL)
     {
-        puts("Erorr");
+        perror("Error opening source file");
+        return;
+    }
+
+    des = fopen(arguments[2], "wb");
+
+    if (des == NULL)
+    {
+        perror("Error opening destination file");
         fclose(src);
         return;
     }
@@ -314,102 +520,203 @@ void cp(char **arguments)
     {
         fputc(ch, des);
     }
+
     fclose(src);
     fclose(des);
 }
+
+
 void delete(char **path)
 {
     if (path == NULL || path[1] == NULL)
     {
-        fprintf(stderr, "Error: Path is NULL or not provided.\n");
+        fprintf(
+            stderr,
+            "Error: Path is NULL or not provided.\n"
+        );
+
         return;
     }
+
     char fullPath[1024] = {0};
+
     for (int i = 1; path[i] != NULL; ++i)
     {
+        if (
+            strlen(fullPath) +
+                strlen(path[i]) + 2 >
+            sizeof(fullPath)
+        )
+        {
+            fprintf(
+                stderr,
+                "Error: Path is too long.\n"
+            );
+
+            return;
+        }
+
         if (i > 1)
             strcat(fullPath, " ");
+
         strcat(fullPath, path[i]);
     }
-    printf("Attempting to delete file: %s\n", fullPath);
+
+    printf(
+        "Attempting to delete file: %s\n",
+        fullPath
+    );
+
     if (unlink(fullPath) == 0)
     {
-        printf("File '%s' successfully deleted.\n", fullPath);
+        printf(
+            "File '%s' successfully deleted.\n",
+            fullPath
+        );
     }
     else
     {
         perror("Error deleting file");
     }
 }
+
+
 void systemCall(char **arg)
 {
+    if (arg == NULL || arg[0] == NULL)
+        return;
 
     pid_t pid = fork();
+
     if (pid == -1)
     {
-        printf("fork err\n");
+        perror("fork");
         return;
     }
-    if (pid == 0 && execvp(arg[0], arg) == -1)
-        exit(1);
+
+    if (pid == 0)
+    {
+        execvp(arg[0], arg);
+
+        perror("execvp");
+
+        exit(EXIT_FAILURE);
+    }
 }
-char **splitInput(char *input, int *pipeIndex)
+
+
+char **splitInput(
+    char *input,
+    int *pipeIndex
+)
 {
-    char **arguments = malloc(strlen(input) * sizeof(char *));
+    char **arguments =
+        malloc(
+            (strlen(input) + 1) *
+            sizeof(char *)
+        );
+
     if (arguments == NULL)
     {
-        fprintf(stderr, "Memory allocation failed\n");
+        fprintf(
+            stderr,
+            "Memory allocation failed\n"
+        );
+
         exit(EXIT_FAILURE);
     }
 
     int argCount = 0;
-    int index = 0;
+
     *pipeIndex = -1;
+
     for (int i = 0; input[i] != '\0'; i++)
     {
-
         if (input[i] == '|')
         {
             *pipeIndex = i;
             break;
         }
+
         if (input[i] != ' ')
         {
             int start = i;
 
-            while (input[i] != ' ' && input[i] != '|' && input[i] != '\0')
+            while (
+                input[i] != ' ' &&
+                input[i] != '|' &&
+                input[i] != '\0'
+            )
+            {
                 i++;
+            }
+
             int end = i;
 
-            arguments[argCount] = malloc((end - start + 1) * sizeof(char));
+            arguments[argCount] =
+                malloc(
+                    (end - start + 1) *
+                    sizeof(char)
+                );
+
             if (arguments[argCount] == NULL)
             {
-                fprintf(stderr, "Memory allocation failed\n");
+                fprintf(
+                    stderr,
+                    "Memory allocation failed\n"
+                );
+
                 exit(EXIT_FAILURE);
             }
 
-            strncpy(arguments[argCount], input + start, end - start);
-            arguments[argCount][end - start] = '\0';
+            strncpy(
+                arguments[argCount],
+                input + start,
+                end - start
+            );
+
+            arguments[argCount][end - start] =
+                '\0';
 
             argCount++;
         }
     }
+
     arguments[argCount] = NULL;
 
     return arguments;
 }
-char **splitAfterPipe(char *input, int pipeIndex)
+
+
+char **splitAfterPipe(
+    char *input,
+    int pipeIndex
+)
 {
-    char **arguments = malloc(strlen(input) * sizeof(char *));
+    char **arguments =
+        malloc(
+            (strlen(input) + 1) *
+            sizeof(char *)
+        );
+
     if (arguments == NULL)
     {
-        fprintf(stderr, "Memory allocation failed\n");
+        fprintf(
+            stderr,
+            "Memory allocation failed\n"
+        );
+
         exit(EXIT_FAILURE);
     }
-    int argCount = 0;
-    for (int i = pipeIndex + 1; input[i] != '\0'; i++)
-    {
 
+    int argCount = 0;
+
+    for (
+        int i = pipeIndex + 1;
+        input[i] != '\0';
+        i++
+    )
+    {
         while (input[i] == ' ')
             i++;
 
@@ -417,163 +724,398 @@ char **splitAfterPipe(char *input, int pipeIndex)
         {
             int start = i;
 
-            while (input[i] != ' ' && input[i] != '\0')
+            while (
+                input[i] != ' ' &&
+                input[i] != '\0'
+            )
+            {
                 i++;
+            }
+
             int end = i;
-            arguments[argCount] = malloc((end - start + 1) * sizeof(char));
+
+            arguments[argCount] =
+                malloc(
+                    (end - start + 1) *
+                    sizeof(char)
+                );
+
             if (arguments[argCount] == NULL)
             {
-                fprintf(stderr, "Memory allocation failed\n");
+                fprintf(
+                    stderr,
+                    "Memory allocation failed\n"
+                );
+
                 exit(EXIT_FAILURE);
             }
 
-            strncpy(arguments[argCount], input + start, end - start);
-            arguments[argCount][end - start] = '\0';
+            strncpy(
+                arguments[argCount],
+                input + start,
+                end - start
+            );
+
+            arguments[argCount][end - start] =
+                '\0';
+
             argCount++;
         }
     }
+
     arguments[argCount] = NULL;
 
     return arguments;
 }
-void mypipe(char **argv1, char **argv2)
-{
-    int fildes[2];
-    if (fork() == 0)
-    {
-        pipe(fildes);
-        if (fork() == 0)
-        {
-            close(STDOUT_FILENO);
-            dup(fildes[1]);
-            close(fildes[1]);
-            close(fildes[0]);
 
-            execvp(argv1[0], argv1);
+
+void mypipe(
+    char **argv1,
+    char **argv2
+)
+{
+    if (
+        argv1 == NULL ||
+        argv1[0] == NULL ||
+        argv2 == NULL ||
+        argv2[0] == NULL
+    )
+    {
+        fprintf(stderr, "Invalid pipe command\n");
+        return;
+    }
+
+    int fildes[2];
+
+    if (pipe(fildes) == -1)
+    {
+        perror("pipe");
+        return;
+    }
+
+    pid_t firstPid = fork();
+
+    if (firstPid == -1)
+    {
+        perror("fork");
+
+        close(fildes[0]);
+        close(fildes[1]);
+
+        return;
+    }
+
+    if (firstPid == 0)
+    {
+        if (
+            dup2(
+                fildes[1],
+                STDOUT_FILENO
+            ) == -1
+        )
+        {
+            perror("dup2");
+            exit(EXIT_FAILURE);
         }
 
-        close(STDIN_FILENO);
-        dup(fildes[0]);
+        close(fildes[0]);
+        close(fildes[1]);
+
+        execvp(argv1[0], argv1);
+
+        perror("execvp");
+
+        exit(EXIT_FAILURE);
+    }
+
+    pid_t secondPid = fork();
+
+    if (secondPid == -1)
+    {
+        perror("fork");
+
+        close(fildes[0]);
+        close(fildes[1]);
+
+        waitpid(firstPid, NULL, 0);
+
+        return;
+    }
+
+    if (secondPid == 0)
+    {
+        if (
+            dup2(
+                fildes[0],
+                STDIN_FILENO
+            ) == -1
+        )
+        {
+            perror("dup2");
+            exit(EXIT_FAILURE);
+        }
+
         close(fildes[0]);
         close(fildes[1]);
 
         execvp(argv2[0], argv2);
+
+        perror("execvp");
+
+        exit(EXIT_FAILURE);
     }
+
+    close(fildes[0]);
+    close(fildes[1]);
+
+    waitpid(firstPid, NULL, 0);
+    waitpid(secondPid, NULL, 0);
 }
+
+
 void move(char **args)
 {
+    if (
+        args == NULL ||
+        args[1] == NULL ||
+        args[2] == NULL
+    )
+    {
+        fprintf(
+            stderr,
+            "Usage: mv <source> <destination>\n"
+        );
+
+        return;
+    }
+
     char srcPath[2048] = {0};
     char destPath[2048] = {0};
 
-    strcat(srcPath, args[1]);
-    if (args[2] != NULL)
-    {
-        strcat(srcPath, " ");
-        strcat(srcPath, args[2]);
-    }
-    if (args[3] != NULL)
-    {
-        strcat(destPath, args[3]);
-        if (args[4] != NULL)
-        {
-            strcat(destPath, " ");
-            strcat(destPath, args[4]);
-        }
-    }
+    /*
+     * Basic two-argument move.
+     *
+     * Paths containing spaces should preferably
+     * be supplied inside quotation marks.
+     */
+    strncpy(
+        srcPath,
+        args[1],
+        sizeof(srcPath) - 1
+    );
 
-    printf("Attempting to move from '%s' to '%s'\n", srcPath, destPath);
+    strncpy(
+        destPath,
+        args[2],
+        sizeof(destPath) - 1
+    );
+
+    printf(
+        "Attempting to move from '%s' to '%s'\n",
+        srcPath,
+        destPath
+    );
+
     if (rename(srcPath, destPath) == 0)
     {
         printf("File successfully moved.\n");
     }
     else
     {
-        perror("Error movingfile");
+        perror("Error moving file");
     }
 }
+
+
 void readd(char **args)
 {
-    if (args[1] == NULL)
+    if (args == NULL || args[1] == NULL)
     {
-        fprintf(stderr, "Usage: read <path>\n");
+        fprintf(
+            stderr,
+            "Usage: read <path>\n"
+        );
+
         return;
     }
+
     char filePath[2048] = {0};
+
     for (int i = 1; args[i] != NULL; ++i)
     {
+        if (
+            strlen(filePath) +
+                strlen(args[i]) + 2 >
+            sizeof(filePath)
+        )
+        {
+            fprintf(
+                stderr,
+                "File path is too long.\n"
+            );
+
+            return;
+        }
+
         if (i > 1)
             strcat(filePath, " ");
+
         strcat(filePath, args[i]);
     }
+
     FILE *file = fopen(filePath, "r");
-    if (!file)
+
+    if (file == NULL)
     {
         perror("Error opening file");
         return;
     }
+
     char buffer[1024];
-    while (fgets(buffer, sizeof(buffer), file) != NULL)
+
+    while (
+        fgets(
+            buffer,
+            sizeof(buffer),
+            file
+        ) != NULL
+    )
     {
         printf("%s", buffer);
     }
+
     fclose(file);
 }
+
+
 void wordCount(char **args)
 {
-    if (args[1] == NULL || args[2] == NULL)
+    if (
+        args == NULL ||
+        args[1] == NULL ||
+        args[2] == NULL
+    )
     {
-        fprintf(stderr, "Usage: wc <-l/-w> <file path>\n");
+        fprintf(
+            stderr,
+            "Usage: wc <-l/-w> <file path>\n"
+        );
+
         return;
     }
+
     char *option = args[1];
-    char file_path[2048] = {0};
+
+    char filePath[2048] = {0};
+
     for (int i = 2; args[i] != NULL; ++i)
     {
+        if (
+            strlen(filePath) +
+                strlen(args[i]) + 2 >
+            sizeof(filePath)
+        )
+        {
+            fprintf(
+                stderr,
+                "File path is too long.\n"
+            );
+
+            return;
+        }
+
         if (i > 2)
-            strcat(file_path, " ");
-        strcat(file_path, args[i]);
+            strcat(filePath, " ");
+
+        strcat(filePath, args[i]);
     }
-    FILE *file = fopen(file_path, "r");
+
+    FILE *file = fopen(filePath, "r");
+
     if (file == NULL)
     {
-        printf("File '%s' does not exist or cannot be opened.\n", file_path);
+        fprintf(
+            stderr,
+            "File '%s' does not exist "
+            "or cannot be opened.\n",
+            filePath
+        );
+
         return;
     }
+
     int count = 0;
 
     if (strcmp(option, "-l") == 0)
     {
         char buffer[1024];
-        while (fgets(buffer, sizeof(buffer), file) != NULL)
+
+        while (
+            fgets(
+                buffer,
+                sizeof(buffer),
+                file
+            ) != NULL
+        )
         {
             count++;
         }
-        printf("Number of lines in the file: %d\n", count);
+
+        printf(
+            "Number of lines in the file: %d\n",
+            count
+        );
     }
     else if (strcmp(option, "-w") == 0)
     {
-        int prev_char = ' ';
-        int current_char;
-        while ((current_char = fgetc(file)) != EOF)
+        int previousChar = ' ';
+        int currentChar;
+
+        while (
+            (currentChar = fgetc(file)) != EOF
+        )
         {
-            if (current_char == ' ' || current_char == '\n' || current_char == '\t')
+            if (
+                currentChar == ' ' ||
+                currentChar == '\n' ||
+                currentChar == '\t'
+            )
             {
-                if (prev_char != ' ' && prev_char != '\n' && prev_char != '\t')
+                if (
+                    previousChar != ' ' &&
+                    previousChar != '\n' &&
+                    previousChar != '\t'
+                )
                 {
                     count++;
                 }
             }
-            prev_char = current_char;
+
+            previousChar = currentChar;
         }
-        if (prev_char != ' ' && prev_char != '\n' && prev_char != '\t')
+
+        if (
+            previousChar != ' ' &&
+            previousChar != '\n' &&
+            previousChar != '\t'
+        )
         {
             count++;
         }
-        printf("Number of words in the file: %d\n", count);
+
+        printf(
+            "Number of words in the file: %d\n",
+            count
+        );
     }
     else
     {
-        fprintf(stderr, "Invalid option. Usage: wc <-l/-w> <file path>\n");
+        fprintf(
+            stderr,
+            "Invalid option. "
+            "Usage: wc <-l/-w> <file path>\n"
+        );
     }
+
     fclose(file);
 }
